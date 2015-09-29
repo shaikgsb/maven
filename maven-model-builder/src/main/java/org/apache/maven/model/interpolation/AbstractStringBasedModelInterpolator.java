@@ -165,9 +165,23 @@ public abstract class AbstractStringBasedModelInterpolator
 
         valueSources.add( new MapBasedValueSource( config.getUserProperties() ) );
 
+        // Overwrite existing values in model properties. Otherwise it's not possible
+        // to define the version via command line: mvn -Drevision=6.5.7 ...
+        if ( config.getSystemProperties().containsKey( "revision" ) )
+        {
+            modelProperties.put( "revision", config.getSystemProperties().get( "revision" ) );
+        }
+        if ( config.getSystemProperties().containsKey( "changelist" ) )
+        {
+            modelProperties.put( "changelist", config.getSystemProperties().get( "changelist" ) );
+        }
+        if ( config.getSystemProperties().containsKey( "sha1" ) )
+        {
+            modelProperties.put( "sha1", config.getSystemProperties().get( "sha1" ) );
+        }
         valueSources.add( new MapBasedValueSource( modelProperties ) );
 
-        valueSources.add( new MapBasedValueSource( config.getSystemProperties() ) );
+        valueSources.add( new MapBasedValueSource   ( config.getSystemProperties() ) );
 
         valueSources.add( new AbstractValueSource( false )
         {
@@ -183,15 +197,14 @@ public abstract class AbstractStringBasedModelInterpolator
         return valueSources;
     }
 
-    protected List<? extends InterpolationPostProcessor> createPostProcessors( final Model model,
-                                                                               final File projectDir,
+    protected List<? extends InterpolationPostProcessor> createPostProcessors( final Model model, final File projectDir,
                                                                                final ModelBuildingRequest config )
     {
         List<InterpolationPostProcessor> processors = new ArrayList<>( 2 );
         if ( projectDir != null )
         {
-            processors.add( new PathTranslatingPostProcessor( PROJECT_PREFIXES, TRANSLATED_PATH_EXPRESSIONS,
-                                                              projectDir, pathTranslator ) );
+            processors.add( new PathTranslatingPostProcessor( PROJECT_PREFIXES, TRANSLATED_PATH_EXPRESSIONS, projectDir,
+                                                              pathTranslator ) );
         }
         processors.add( new UrlNormalizingPostProcessor( urlNormalizer ) );
         return processors;
@@ -228,8 +241,10 @@ public abstract class AbstractStringBasedModelInterpolator
                 }
                 catch ( InterpolationException e )
                 {
+                    //@formatter:off
                     problems.add( new ModelProblemCollectorRequest( Severity.ERROR, Version.BASE )
-                        .setMessage( e.getMessage() ).setException( e ) );
+                                  .setMessage( e.getMessage() ).setException( e ) );
+                    //@formatter:on
                 }
 
                 interpolator.clearFeedback();
