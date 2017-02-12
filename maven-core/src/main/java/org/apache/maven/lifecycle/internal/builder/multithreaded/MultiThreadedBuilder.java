@@ -51,8 +51,7 @@ import org.codehaus.plexus.logging.Logger;
  * will always result in a sequential build, regardless of the thread count.
  *
  * @since 3.0
- * @author Kristian Rosenvold
- *         Builds one or more lifecycles for a full module
+ * @author Kristian Rosenvold Builds one or more lifecycles for a full module
  *         <p/>
  *         NOTE: This class is not part of any public api and can be changed or deleted without prior notice.
  */
@@ -66,7 +65,6 @@ public class MultiThreadedBuilder
 
     @Requirement
     private LifecycleModuleBuilder lifecycleModuleBuilder;
-
 
     public MultiThreadedBuilder()
     {
@@ -142,15 +140,20 @@ public class MultiThreadedBuilder
                 {
                     break;
                 }
-                final List<MavenProject> newItemsThatCanBeBuilt =
-                    analyzer.markAsFinished( projectBuild.getProject() );
-                for ( MavenProject mavenProject : newItemsThatCanBeBuilt )
+
+                // MNG-6170: Only schedule other modules from reactor if we have more modules to build than one. 
+                if ( analyzer.getNumberOfBuilds() > 1 )
                 {
-                    ProjectSegment scheduledDependent = projectBuildList.get( mavenProject );
-                    logger.debug( "Scheduling: " + scheduledDependent );
-                    Callable<ProjectSegment> cb =
-                        createBuildCallable( rootSession, scheduledDependent, reactorContext, taskSegment, muxer );
-                    service.submit( cb );
+                    final List<MavenProject> newItemsThatCanBeBuilt =
+                        analyzer.markAsFinished( projectBuild.getProject() );
+                    for ( MavenProject mavenProject : newItemsThatCanBeBuilt )
+                    {
+                        ProjectSegment scheduledDependent = projectBuildList.get( mavenProject );
+                        logger.debug( "Scheduling: " + scheduledDependent );
+                        Callable<ProjectSegment> cb =
+                            createBuildCallable( rootSession, scheduledDependent, reactorContext, taskSegment, muxer );
+                        service.submit( cb );
+                    }
                 }
             }
             catch ( InterruptedException e )
@@ -160,13 +163,13 @@ public class MultiThreadedBuilder
             }
             catch ( ExecutionException e )
             {
-                // TODO MNG-5766 changes likely made this redundant 
+                // TODO MNG-5766 changes likely made this redundant
                 rootSession.getResult().addException( e );
                 break;
             }
         }
 
-        // cancel outstanding builds (if any)  - this can happen if an exception is thrown in above block
+        // cancel outstanding builds (if any) - this can happen if an exception is thrown in above block
 
         Future<ProjectSegment> unprocessed;
         while ( ( unprocessed = service.poll() ) != null )
